@@ -1,6 +1,15 @@
 import { supabase } from './supabase.js';
 import { showToast } from '../ui/components/toast.js';
 
+// Cached current user id — needed to satisfy RLS (auth.uid() = user_id) on inserts.
+let _cachedUserId = null;
+async function userId() {
+  if (_cachedUserId) return _cachedUserId;
+  const { data: { user } } = await supabase.auth.getUser();
+  _cachedUserId = user?.id || null;
+  return _cachedUserId;
+}
+
 // ── LOAD ALL ─────────────────────────────────────────────────────────────────
 
 export async function loadAll() {
@@ -55,8 +64,10 @@ export async function loadAll() {
 // ── TRANSACTIONS ──────────────────────────────────────────────────────────────
 
 export async function insertTransactions(txns, source) {
+  const uid = await userId();
   const rows = txns.map(t => ({
     id: t.id,
+    user_id: uid,
     source,
     date: t.date,
     date_only_month: t.dateOnlyMonth,
@@ -132,8 +143,10 @@ export async function deleteAllTransactions() {
 // ── PEOPLE ────────────────────────────────────────────────────────────────────
 
 export async function upsertPerson(p) {
+  const uid = await userId();
   const { error } = await supabase.from('people').upsert({
     id: p.id,
+    user_id: uid,
     name: p.name,
     color: p.color,
   });
@@ -153,8 +166,10 @@ export async function deleteAllPeople() {
 // ── CATEGORIES ────────────────────────────────────────────────────────────────
 
 export async function upsertCategory(c) {
+  const uid = await userId();
   const { error } = await supabase.from('custom_categories').upsert({
     id: c.id,
+    user_id: uid,
     name: c.name,
     type: c.type,
     color: c.color,
