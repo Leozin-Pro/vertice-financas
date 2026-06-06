@@ -1,10 +1,10 @@
 import { el, T, btnSmall } from './el.js';
-import { STATE } from '../../modules/state.js';
+import { STATE, newId } from '../../modules/state.js';
 import { signOut } from '../../lib/auth.js';
 import { showToast } from './toast.js';
 import {
-  deleteAllTransactions, deleteAllPeople, upsertPerson,
-  insertTransactions,
+  deleteAllTransactions, deleteAllPeople, deleteAllCategories,
+  upsertPerson, upsertCategory, insertTransactions,
 } from '../../lib/db.js';
 
 export function buildHeader(user, render) {
@@ -95,22 +95,62 @@ function importBackup(render) {
       try {
         const obj = JSON.parse(r.result);
         if (!obj.pix || !obj.credit) { alert('Arquivo inválido.'); return; }
-        if (!obj.people) obj.people = STATE.people;
-        obj.pix.forEach(t => { if (!t.people) t.people = []; if (t.dateOnlyMonth === undefined) t.dateOnlyMonth = false; });
-        obj.credit.forEach(t => { if (!t.people) t.people = []; if (t.dateOnlyMonth === undefined) t.dateOnlyMonth = false; });
+        if (!confirm('Importar este backup vai SUBSTITUIR todos os dados atuais (pessoas, categorias e lançamentos). Continuar?')) return;
 
-        // Clear DB then re-insert
+        // O app antigo usava IDs curtos (ex: "p_self", "qmhunsle") que NÃO são UUIDs
+        // válidos pro Postgres. Regeramos todos os IDs como UUID e remapeamos as
+        // referências (pessoas nos lançamentos e grupos de parcelas).
+        const personIdMap = {};
+        const people = (obj.people || []).map(p => {
+          const newPid = newId();
+          personIdMap[p.id] = newPid;
+          return { id: newPid, name: p.name, color: p.color };
+        });
+
+        const groupIdMap = {};
+        const remapTxn = (t) => {
+          let installmentGroup = null;
+          if (t.installmentGroup) {
+            if (!groupIdMap[t.installmentGroup]) groupIdMap[t.installmentGroup] = newId();
+            installmentGroup = groupIdMap[t.installmentGroup];
+          }
+          return {
+            id: newId(),
+            date: t.date,
+            dateOnlyMonth: t.dateOnlyMonth === undefined ? false : t.dateOnlyMonth,
+            desc: t.desc,
+            amount: t.amount,
+            category: t.category,
+            isFixed: !!t.isFixed,
+            people: (t.people || []).map(pid => personIdMap[pid]).filter(Boolean),
+            installmentGroup,
+            installmentNum: t.installmentNum || null,
+            installmentTotal: t.installmentTotal || null,
+          };
+        };
+
+        const pix = obj.pix.map(remapTxn);
+        const credit = obj.credit.map(remapTxn);
+        const customCategories = (obj.customCategories || []).map(c => ({
+          id: newId(), name: c.name, type: c.type, color: c.color,
+        }));
+
+        // Limpa o banco e reinsere tudo com os IDs novos
         await deleteAllTransactions();
         await deleteAllPeople();
-        STATE.pix = obj.pix;
-        STATE.credit = obj.credit;
-        STATE.people = obj.people;
-        STATE.customCategories = obj.customCategories || [];
+        await deleteAllCategories();
 
-        await Promise.all(STATE.people.map(p => upsertPerson(p)));
-        if (STATE.pix.length) await insertTransactions(STATE.pix, 'pix');
-        if (STATE.credit.length) await insertTransactions(STATE.credit, 'credit');
-        showToast('Backup importado com sucesso.', 'success');
+        STATE.pix = pix;
+        STATE.credit = credit;
+        STATE.people = people;
+        STATE.customCategories = customCategories;
+
+        await Promise.all(people.map(p => upsertPerson(p)));
+        await Promise.all(customCategories.map(c => upsertCategory(c)));
+        if (pix.length) await insertTransactions(pix, 'pix');
+        if (credit.length) await insertTransactions(credit, 'credit');
+
+        showToast('Backup importado: ' + people.length + ' pessoas, ' + (pix.length + credit.length) + ' lançamentos.', 'success');
         render();
       } catch (err) { alert('Erro: ' + err.message); }
     };

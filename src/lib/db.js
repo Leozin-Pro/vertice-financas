@@ -182,6 +182,11 @@ export async function deleteCategory(id) {
   if (error) showToast('Erro ao excluir categoria: ' + error.message, 'error');
 }
 
+export async function deleteAllCategories() {
+  const { error } = await supabase.from('custom_categories').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+  if (error) showToast('Erro ao apagar categorias: ' + error.message, 'error');
+}
+
 // ── PREFS ─────────────────────────────────────────────────────────────────────
 
 export async function savePrefs(collapsedCards) {
