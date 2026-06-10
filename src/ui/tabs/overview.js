@@ -2,11 +2,14 @@ import { el, T } from '../components/el.js';
 import { buildCard } from '../components/card.js';
 import { kpi } from '../components/kpi.js';
 import { openTxnEditor } from '../components/txn-editor.js';
+import { buildSettleCard } from '../components/settle.js';
+import { buildProjectionCard } from '../components/projection.js';
+import { buildBudgetCard } from '../components/budget.js';
 import { STATE } from '../../modules/state.js';
-import { fmt, fmtShort, monthLabel, monthKey, txnDateLabel, normalizeDesc } from '../../modules/parser.js';
+import { fmt, fmtShort, monthLabel, monthKey, currentMonthKey, txnDateLabel, normalizeDesc } from '../../modules/parser.js';
 import { deleteTransaction, deleteTransactionGroup } from '../../lib/db.js';
 
-export function buildDashboard(filtered, unfiltered, globalPersonFilter, render) {
+export function buildDashboard(filtered, unfiltered, globalPersonFilter, globalMonthFilter, render) {
   const wrap = el('div', { style: { padding: '20px 24px', background: T.bg } });
 
   const expenses = filtered.filter(t => t.amount < 0);
@@ -113,6 +116,24 @@ export function buildDashboard(filtered, unfiltered, globalPersonFilter, render)
   }
   wrap.appendChild(kpiRow);
 
+  // ── PROJEÇÃO DO MÊS (só no mês corrente, sem filtro de pessoa) ──
+  if (globalPersonFilter === 'all' && globalMonthFilter === currentMonthKey()) {
+    const proj = buildProjectionCard(unfiltered);
+    if (proj) wrap.appendChild(proj);
+  }
+
+  // ── ORÇAMENTO DO MÊS ──
+  if (globalPersonFilter === 'all' && globalMonthFilter !== 'all') {
+    const budget = buildBudgetCard(filtered, globalMonthFilter);
+    if (budget) wrap.appendChild(budget);
+  }
+
+  // ── ACERTO DO MÊS ──
+  if (globalPersonFilter === 'all' && globalMonthFilter !== 'all' && STATE.people.length > 0) {
+    const settle = buildSettleCard(filtered, globalMonthFilter, render);
+    if (settle) wrap.appendChild(settle);
+  }
+
   // ── COMPROMISSOS FUTUROS ──
   if (Object.keys(futureByMonth).length > 0) {
     wrap.appendChild(buildCard('💳 Compromissos futuros · parcelas a vencer', (host) => {
@@ -215,7 +236,7 @@ export function buildDashboard(filtered, unfiltered, globalPersonFilter, render)
   }
 
   // ── TENDÊNCIA + TIPOLOGIA ──
-  const row1 = el('div', { style: { display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: '12px', marginBottom: '12px' } });
+  const row1 = el('div', { className: 'ov-grid', style: { display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: '12px', marginBottom: '12px' } });
 
   row1.appendChild(buildCard('Tendência mensal · entradas vs. saídas' + filterLabel, (host) => {
     const c = el('canvas', { role: 'img', 'aria-label': 'Entradas e saídas por mês' });
@@ -264,7 +285,7 @@ export function buildDashboard(filtered, unfiltered, globalPersonFilter, render)
   }
 
   // ── RECORRENTES + ALERTAS ──
-  const row3 = el('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '12px' } });
+  const row3 = el('div', { className: 'ov-grid', style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '12px' } });
 
   row3.appendChild(buildCard('Gastos recorrentes detectados' + filterLabel, (host) => {
     if (recurring.length === 0) { host.appendChild(el('div', { style: { padding: '20px', color: T.textMute, fontSize: '13px', textAlign: 'center' } }, 'Nenhum gasto recorrente identificado ainda.')); return; }

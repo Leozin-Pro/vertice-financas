@@ -14,6 +14,13 @@ document.addEventListener('app:render', () => {
   if (currentUser) render(currentUser);
 });
 
+// ── PWA: service worker (app shell offline) ───────────────────────────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}
+
 // ── Keyboard shortcuts (global) ───────────────────────────────────────────────
 document.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
@@ -51,8 +58,21 @@ async function initDashboard(user) {
     const data = await loadAll();
     hydrate(data);
     initCollapsedCards(data.collapsedCards);
+    try { localStorage.setItem('vf-snapshot-' + user.id, JSON.stringify(data)); } catch {}
     render(user);
   } catch (err) {
+    // Offline (ou Supabase fora): cai pro último snapshot salvo, só leitura
+    const cached = localStorage.getItem('vf-snapshot-' + user.id);
+    if (cached) {
+      try {
+        const data = JSON.parse(cached);
+        hydrate(data);
+        initCollapsedCards(data.collapsedCards);
+        render(user);
+        showToast('Sem conexão — exibindo dados da última sessão', 'error');
+        return;
+      } catch {}
+    }
     showToast('Erro ao carregar dados: ' + err.message, 'error');
     showErrorScreen(err.message);
   }

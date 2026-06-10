@@ -1,6 +1,7 @@
 import { el, T } from '../components/el.js';
 import { STATE, newId } from '../../modules/state.js';
 import { getAllCategories } from '../../modules/categorize.js';
+import { buildBudgetConfig } from '../components/budget.js';
 import { upsertCategory, deleteCategory } from '../../lib/db.js';
 
 export function buildCategoriesView(render) {
@@ -98,6 +99,8 @@ export function buildCategoriesView(render) {
   }, '+ Adicionar'));
   form.appendChild(row);
   wrap.appendChild(form);
+
+  wrap.appendChild(buildBudgetConfig(render));
 
   const listCard = el('div', {
     style: { background: T.surface, border: '1px solid ' + T.border, borderRadius: '4px', padding: '14px 16px' },

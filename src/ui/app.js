@@ -72,7 +72,7 @@ export function render(user) {
 
   syncTxnFilters(globalPersonFilter, globalMonthFilter);
   const filtered = getFilteredTxns();
-  root.appendChild(buildDashboard(filtered, txns, globalPersonFilter, () => render(user)));
+  root.appendChild(buildDashboard(filtered, txns, globalPersonFilter, globalMonthFilter, () => render(user)));
 
   window.scrollTo(0, scrollY);
   if (tableScrollTop > 0) {

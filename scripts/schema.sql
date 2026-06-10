@@ -46,10 +46,12 @@ create table if not exists transaction_people (
   primary key (transaction_id, person_id)
 );
 
--- Preferências do usuário (estado dos cards colapsados, etc)
+-- Preferências do usuário (estado dos cards colapsados, orçamentos, acertos)
 create table if not exists user_prefs (
   user_id uuid primary key references auth.users(id) on delete cascade,
   collapsed_cards jsonb default '{}'::jsonb,
+  budgets jsonb default '{}'::jsonb,
+  settlements jsonb default '{}'::jsonb,
   updated_at timestamptz default now()
 );
 

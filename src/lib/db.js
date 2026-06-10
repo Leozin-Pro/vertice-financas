@@ -20,7 +20,7 @@ export async function loadAll() {
       .order('date', { ascending: false }),
     supabase.from('people').select('*').order('created_at'),
     supabase.from('custom_categories').select('*').order('created_at'),
-    supabase.from('user_prefs').select('collapsed_cards').maybeSingle(),
+    supabase.from('user_prefs').select('collapsed_cards, budgets, settlements').maybeSingle(),
   ]);
 
   for (const res of [txnRes, peopleRes, catsRes]) {
@@ -58,6 +58,8 @@ export async function loadAll() {
       ? catsRes.data.map(c => ({ id: c.id, name: c.name, type: c.type, color: c.color }))
       : [],
     collapsedCards: prefsRes.data?.collapsed_cards || {},
+    budgets: prefsRes.data?.budgets || {},
+    settlements: prefsRes.data?.settlements || {},
   };
 }
 
@@ -197,4 +199,26 @@ export async function savePrefs(collapsedCards) {
     collapsed_cards: collapsedCards,
     updated_at: new Date().toISOString(),
   });
+}
+
+export async function saveBudgets(budgets) {
+  const uid = await userId();
+  if (!uid) return;
+  const { error } = await supabase.from('user_prefs').upsert({
+    user_id: uid,
+    budgets,
+    updated_at: new Date().toISOString(),
+  });
+  if (error) showToast('Erro ao salvar orçamento: ' + error.message + ' (rodou a migração SQL?)', 'error');
+}
+
+export async function saveSettlements(settlements) {
+  const uid = await userId();
+  if (!uid) return;
+  const { error } = await supabase.from('user_prefs').upsert({
+    user_id: uid,
+    settlements,
+    updated_at: new Date().toISOString(),
+  });
+  if (error) showToast('Erro ao salvar acerto: ' + error.message + ' (rodou a migração SQL?)', 'error');
 }

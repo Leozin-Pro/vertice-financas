@@ -6,6 +6,8 @@ export const STATE = {
   credit: [],
   people: [],
   customCategories: [],
+  budgets: {},
+  settlements: {},
 };
 
 export function hydrate(data) {
@@ -13,6 +15,8 @@ export function hydrate(data) {
   STATE.credit = data.credit || [];
   STATE.people = data.people || [];
   STATE.customCategories = data.customCategories || [];
+  STATE.budgets = data.budgets || {};
+  STATE.settlements = data.settlements || {};
 }
 
 // UUID v4 — replaces Math.random().toString(36) used in legacy code
